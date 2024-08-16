@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <p>
+      Here you can search by tags/labels (spelled the same as in blog).&nbsp;
+    </p>
+    <p>
+      You can type each in separate field or you can type them all in one field
+      divided by commas.&nbsp;
+    </p>
+    <p>
+      Unfortunately so far you can search only within one year (the request with
+      several years in it will return nothing).&nbsp;
+    </p>
+    <p>
+      As alternative you can search without entering any year (the results will
+      cover all the lifespan of this blog).
+    </p>
+    <p><br /></p>
+    <form class="search-form">
+      <ul class="input-wrapper" style="padding-left: 0px">
+        <li>
+          <input class="search-input" name="0" type="text" />
+          <button class="btn add-btn" type="button">
+            <span class="span add-span">+</span>
+          </button>
+        </li>
+      </ul>
+      <button class="button search-btn" type="submit">Search</button>
+    </form>
+    <button class="button resetBtn">Clear form</button>
+    <ul class="search-list" style="margin-top: 50px; padding-left: 0px"></ul>
+    <p class="text"></p>
+    <button class="button loadMoreBtn">Load more</button>
+
+    <script type="module">
+      const form = document.querySelector(".search-form");
+      const formList = document.querySelector(".input-wrapper");
+      let inputs = document.querySelectorAll(".search-input");
+      const list = document.querySelector(".search-list");
+      const button = document.querySelector(".loadMoreBtn");
+      const resetBtn = document.querySelector(".resetBtn");
+      let addBtn = document.querySelectorAll(".add-btn");
+      const text = document.querySelector(".text");
+      button.style.display = "none";
+      let searchParams = "";
+      let pageToken = "";
+      let length = 0;
+      let inputName = 0;
+
+      if (localStorage.getItem("NPRSearch")) {
+        inputs[0].value = JSON.parse(localStorage.getItem("NPRSearch"));
+      }
+
+      form.addEventListener("submit", searchHandler);
+      form.addEventListener("input", inputHandler);
+      button.addEventListener("click", fetchPosts);
+      resetBtn.addEventListener("click", resetForm);
+      formList.addEventListener("click", addInput);
+      formList.addEventListener("click", removeInput);
+
+      function inputHandler(event) {
+        if (event.target.matches(".search-input")) {
+          localStorage.setItem("NPRSearch", JSON.stringify(event.target.value));
+        }
+      }
+
+      function removeInput(event) {
+        if (event.target.matches(".remove-span")) {
+          event.target.closest(".btn").parentElement.remove();
+        }
+        inputName -= 1;
+
+        addBtn = document.querySelectorAll(".add-btn");
+      }
+
+      function addInput(event) {
+        if (!event.target.matches(".add-span")) return;
+        inputName += 1;
+        formList.insertAdjacentHTML(
+          "beforeend",
+          `<li>
+          <input class="search-input" name="${inputName}" type="text" />
+          <button class="btn" type="button">
+            <span class="span add-span">+</span>
+            </button>
+            <button class="btn" type="button">
+            <span class="span remove-span">-</span>
+            </button>
+        </li>`
+        );
+        addBtn = document.querySelectorAll(".add-btn");
+      }
+      function resetForm() {
+        form.reset();
+        list.innerHTML = "";
+        text.innerHTML = "";
+        button.style.display = "none";
+        localStorage.removeItem("NPRSearch");
+      }
+
+      function searchHandler(evt) {
+        searchParams = inputs[0].value;
+        list.innerHTML = "";
+        evt.preventDefault();
+        inputs = document.querySelectorAll(".search-input");
+        for (let j = 1; j < inputs.length; j++) {
+          searchParams += "," + inputs[j].value;
+          length = 0;
+        }
+        if (searchParams == 0) return;
+        fetchPosts();
+      }
+      function fetchPosts() {
+        text.textContent = "";
+        button.style.display = "none";
+        fetch(
+          `https://www.googleapis.com/blogger/v3/blogs/8460361847099815664/posts?labels=${searchParams}&maxResults=100&key=AIzaSyBu5UsEjpgP24OO-6H3LUbiS2AfPvgiVRw`
+        )
+          .then((response) => {
+            if (!response.ok) {
+              throw new Error(response.status);
+            }
+            return response.json();
+          })
+          .then((data) => {
+            console.log(data.items);
+            pageToken = data.nextPageToken || "";
+            button.style.display = pageToken ? "block" : "none";
+            length += data.items.length;
+            list.insertAdjacentHTML("beforeend", createMarkup(data.items));
+            searchParams += `&pageToken=${pageToken}`;
+            text.textContent = `${length} posts shown`;
+          })
+          .catch((error) => {
+            if (error.response) {
+              console.error("Server error:", error.response.status);
+            } else if (error.request) {
+              console.error("No response from server");
+            } else {
+              console.error("Unknown error:", error.message);
+            }
+          });
+      }
+
+      function createMarkup(array) {
+        return array
+          .map(({ url, title }) => {
+            return `<li class="item"><a class="search-link" href="${url}" target="_blank">${title}</a></li>`;
+          })
+          .join("");
+      }
+    </script>
+  </body>
+</html>
